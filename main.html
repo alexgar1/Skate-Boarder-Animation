@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">#version 300 es
+
+in vec4 vPosition;
+in vec3 vNormal;
+in vec4 vColor;
+in vec2 vTexCoord;
+
+out vec4 fPosition;
+out vec3 fNormal;
+out vec4 fColor;
+out vec2 fTexCoord;
+
+
+uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+uniform mat4 modelViewMatrix;
+uniform mat4 normalMatrix;
+uniform mat4 projectionMatrix;
+uniform vec4 lightPosition;
+uniform float shininess;
+
+
+void
+main()
+{
+    // Transform vertex normal into eye coordinates
+    vec3 pos = (modelViewMatrix * vPosition).xyz;
+    //vec3 N = normalize( (modelViewMatrix*vec4(vNormal,0.0)).xyz);
+    vec3 N = normalize( (normalMatrix*vec4(vNormal,0.0)).xyz);
+    
+    
+    gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+    
+	fTexCoord = vTexCoord;
+    fColor = vColor;
+    fNormal = N;
+    fPosition = vec4(pos,1.0);
+}
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">#version 300 es
+
+precision mediump float;
+
+uniform sampler2D texture1;
+uniform sampler2D texture2;
+uniform sampler2D texture3;
+uniform sampler2D texture4;
+uniform sampler2D texture5;
+uniform sampler2D texture6;
+
+uniform int blendTextures;
+uniform int useTex3;
+uniform int useTex4;
+uniform int useTex5;
+uniform int useTex6;
+
+
+in vec4 fColor;
+in vec2 fTexCoord;
+in vec4 fPosition;
+in vec3 fNormal;
+
+layout(location=0) out vec4 fragColor ;
+
+uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+uniform vec4 lightPosition;
+uniform float shininess;
+uniform vec3 eyePosition;
+
+void
+main()
+{
+    vec3 N = normalize(fNormal);
+    vec3 L = normalize(vec3(lightPosition - fPosition));
+    vec3 E = normalize(eyePosition - vec3(fPosition));
+    vec3 H = normalize(L + E);
+
+    // Ambient
+    vec4 ambient = ambientProduct;
+
+    // Diffuse
+    float l = max(dot(L, N), 0.0);
+    vec4 diffuse = l * diffuseProduct;
+
+    // Blinn-Phong Specular
+    float halfdot = pow(max(dot(N, H), 0.0), shininess);
+    vec4 specular = halfdot * specularProduct;
+    
+    if (dot(L, N) < 0.0) {
+        specular = vec4(0.0, 0.0, 0.0, 1.0); // no highlight if light is behind
+    }
+
+    vec4 color = ambient + diffuse + specular;
+
+
+    // Apply texture if any
+    if (blendTextures == 1) {
+        // blended rocks and concrete
+        vec4 alphaTextureColor = texture(texture2, fTexCoord);
+        color = mix(texture(texture1, fTexCoord), alphaTextureColor, alphaTextureColor.a);
+    } else if (useTex3 == 1) {
+        color = texture(texture3, fTexCoord); // metal
+    } else if (useTex4 == 1) {
+        color = texture(texture4, fTexCoord); // cracked concrete 
+    } else if (useTex5 == 1) {
+        color = texture(texture5, fTexCoord); // denim pants
+    } else if (useTex6 == 1) {
+        color = texture(texture6, fTexCoord); // grip tape
+    } else {
+        color = fColor * color; // Modulate vertex color with computed Blinn-Phong color
+    }
+
+    fragColor = color;
+}
+</script>
+
+<script type="text/javascript" src="Common/webgl-utils.js"></script>
+<script type="text/javascript" src="Common/initShaders.js"></script>
+
+<script type="text/javascript" src="Common/MV.js"></script>
+<script type="text/javascript" src="objects.js"></script>
+<script type="text/javascript" src="main.js"></script>
+
+
+<body>
+<div id="fps">FPS: 0</div>
+<canvas id="gl-canvas" width="512" height="512">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+
+<br/>
+<br/>
+
+</body>
+</html>
